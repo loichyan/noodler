@@ -7,10 +7,10 @@ use std::{
 
 #[derive(Debug, PartialEq)]
 pub struct NGram<T = String> {
-    threshold: f32,
-    warp: f32,
     arity: usize,
     padding: String,
+    warp: f32,
+    threshold: f32,
     /// all items
     items: Vec<NGramItem<T>>,
     /// existing keys
@@ -50,6 +50,22 @@ impl<T> NGram<T> {
 
     pub fn builder() -> NGramBuilder<T> {
         NGramBuilder::default()
+    }
+
+    pub fn arity(&self) -> usize {
+        self.arity
+    }
+
+    pub fn padding(&self) -> &str {
+        &self.padding
+    }
+
+    pub fn warp(&self) -> f32 {
+        self.warp
+    }
+
+    pub fn threshold(&self) -> f32 {
+        self.threshold
     }
 
     /// Pads a string in preparation for splitting into n-grams.
