@@ -5,6 +5,7 @@ use std::{
     marker::PhantomData,
 };
 
+#[derive(Debug, PartialEq)]
 pub struct NGram<T = String> {
     threshold: f32,
     warp: f32,
@@ -18,11 +19,13 @@ pub struct NGram<T = String> {
     records: HashMap<String, Vec<Record>>,
 }
 
+#[derive(Debug, Eq, PartialEq)]
 struct Record {
     item: usize,
     count: usize,
 }
 
+#[derive(Debug, Eq, PartialEq)]
 struct NGramItem<T> {
     item: T,
     padded_len: usize,
@@ -339,11 +342,6 @@ fn length(s: &str) -> usize {
     s.chars().count()
 }
 
-#[test]
-fn test_length() {
-    assert_eq!(length("哈哈哈"), 3);
-}
-
 fn similarity(samegrams: usize, allgrams: usize, warp: f32) -> f32 {
     let samegrams = samegrams as f32;
     let allgrams = allgrams as f32;
@@ -355,11 +353,209 @@ fn similarity(samegrams: usize, allgrams: usize, warp: f32) -> f32 {
     }
 }
 
-#[test]
-fn test_similarity() {
-    assert_eq!(similarity(5, 10, 1.0), 0.5);
-    assert_eq!(similarity(5, 10, 2.0), 0.75);
-    assert_eq!(similarity(5, 10, 3.0), 0.875);
-    assert_eq!(similarity(2, 4, 2.0), 0.75);
-    assert_eq!(similarity(3, 4, 1.0), 0.75);
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    type NGramStr = NGram<&'static str>;
+
+    #[test]
+    fn unicode_length() {
+        assert_eq!(length("哈哈哈"), 3);
+    }
+
+    #[test]
+    fn ngram_similarity() {
+        assert_eq!(similarity(5, 10, 1.0), 0.5);
+        assert_eq!(similarity(5, 10, 2.0), 0.75);
+        assert_eq!(similarity(5, 10, 3.0), 0.875);
+        assert_eq!(similarity(2, 4, 2.0), 0.75);
+        assert_eq!(similarity(3, 4, 1.0), 0.75);
+    }
+
+    #[test]
+    fn builder() {
+        assert_eq!(
+            NGramStr::builder()
+                .arity(5)
+                .pad_len(3)
+                .pad_char('$')
+                .threshold(0.75)
+                .warp(2.0)
+                .build(),
+            NGramStr {
+                threshold: 0.75,
+                warp: 2.0,
+                arity: 5,
+                padding: "$$$".to_owned(),
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn default_padding() {
+        let ngram = NGramStr::default();
+        assert_eq!(ngram.pad("abc"), "  abc  ");
+    }
+
+    #[test]
+    fn set_pad_char() {
+        let ngram = NGramStr::builder().pad_char('$').build();
+        assert_eq!(ngram.pad("abc"), "$$abc$$");
+    }
+
+    #[test]
+    fn set_pad_len() {
+        let ngram = NGramStr::builder().pad_len(1).build();
+        assert_eq!(ngram.pad("abc"), " abc ");
+    }
+
+    #[test]
+    #[should_panic = "pad_len out of range < arity = 3"]
+    fn panic_if_pad_len_ge_arity() {
+        NGramStr::builder().pad_len(3).build();
+    }
+
+    #[test]
+    fn set_arity() {
+        let ngram = NGramStr::builder().arity(2).build();
+        assert_eq!(
+            ngram.split("abcdef").collect::<Vec<_>>(),
+            vec!["ab", "bc", "cd", "de", "ef"]
+        );
+    }
+
+    #[test]
+    #[should_panic = "arity out of range >= 1"]
+    fn panic_if_arity_lt_1() {
+        NGramStr::builder().arity(0).build();
+    }
+
+    fn item<T>(item: T, padded_len: usize) -> NGramItem<T> {
+        NGramItem { item, padded_len }
+    }
+
+    fn record(item: usize, count: usize) -> Record {
+        Record { item, count }
+    }
+
+    #[test]
+    fn ngram_insert() {
+        let mut ngram = NGramStr::builder().arity(1).build();
+        ngram.insert("abbc");
+        assert_eq!(&ngram.items, &vec![item("abbc", 4)]);
+        ngram.insert("abbc"); // should be ignored
+        assert_eq!(ngram.keys.len(), 1);
+        ngram.insert("bccd");
+        assert_eq!(ngram.keys.len(), 2);
+        assert_eq!(
+            &ngram.records,
+            &[
+                ("a", vec![record(0, 1)]),
+                ("b", vec![record(0, 2), record(1, 1)]),
+                ("c", vec![record(0, 1), record(1, 2)]),
+                ("d", vec![record(1, 1)]),
+            ]
+            .map(|(k, v)| (k.to_owned(), v))
+            .into_iter()
+            .collect::<HashMap<_, _>>()
+        );
+    }
+
+    #[test]
+    fn ngram_split() {
+        let ngram = NGramStr::default();
+        assert_eq!(
+            ngram.split("abcdef").collect::<Vec<_>>(),
+            vec!["abc", "bcd", "cde", "def"]
+        );
+    }
+
+    #[test]
+    fn ngram_split_unicode_chars() {
+        let ngram = NGramStr::default();
+        assert_eq!(
+            ngram.split("一二三四五六").collect::<Vec<_>>(),
+            vec!["一二三", "二三四", "三四五", "四五六"]
+        );
+    }
+
+    #[test]
+    fn ngram_split_no_yield_if_len_lt_arity() {
+        let ngram = NGramStr::default();
+        assert_eq!(ngram.split("a").collect::<Vec<_>>(), Vec::<&str>::default());
+    }
+
+    #[test]
+    fn ngram_ngrams() {
+        let ngram = NGramStr::default();
+        assert_eq!(
+            ngram.ngrams("abcdabcd").collect::<HashMap<_, _>>(),
+            [("abc", 2), ("bcd", 2), ("cda", 1), ("dab", 1)]
+                .into_iter()
+                .collect::<HashMap<_, _>>()
+        );
+    }
+
+    #[test]
+    fn ngram_items_sharing_ngrams() {
+        let mut ngram = NGramStr::default();
+        ngram.extend(["abcde", "cde", "bcdef", "fgh"]);
+        assert_eq!(
+            ngram
+                .items_sharing_ngrams("abcdefg")
+                .map(|(s, t)| (*s, t))
+                .collect::<HashMap<_, _>>(),
+            [("abcde", 5), ("cde", 1), ("bcdef", 3)]
+                .into_iter()
+                .collect::<HashMap<_, _>>()
+        );
+    }
+
+    #[test]
+    fn ngram_items_sharing_ngrams_min_count() {
+        let mut ngram = NGramStr::builder().arity(1).build();
+        ngram.extend(["aaa", "bbb"]);
+        assert_eq!(
+            ngram
+                .items_sharing_ngrams("aaaaab")
+                .map(|(s, t)| (*s, t))
+                .collect::<HashMap<_, _>>(),
+            [("aaa", 3), ("bbb", 1)]
+                .into_iter()
+                .collect::<HashMap<_, _>>()
+        );
+    }
+
+    #[test]
+    fn ngram_similarities() {
+        let mut ngram = NGramStr::default();
+        ngram.extend(["abcde", "cdcd", "cde"]);
+        assert_eq!(
+            ngram
+                .item_similarities("cde", 1.0)
+                .map(|(s, i)| (*s, i))
+                .collect::<HashMap<_, _>>(),
+            [
+                ("abcde", similarity(3, 9, 1.0)),
+                ("cdcd", similarity(2, 9, 1.0)),
+                ("cde", similarity(5, 5, 1.0)),
+            ]
+            .into_iter()
+            .collect::<HashMap<_, _>>()
+        );
+    }
+
+    #[test]
+    fn ngram_search() {
+        let mut ngram = NGramStr::builder().threshold(0.5).warp(2.0).build();
+        ngram.extend(["abcde", "cdcd", "cde", "cdef"]);
+        let mut matches = ngram.search("cde").collect::<Vec<_>>();
+        matches.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap().reverse());
+        assert_eq!(
+            matches.into_iter().map(|(s, _)| *s).collect::<Vec<_>>(),
+            vec!["cde", "cdef", "abcde"]
+        );
+    }
 }
