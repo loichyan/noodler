@@ -5,7 +5,7 @@ use std::{
     marker::PhantomData,
 };
 
-pub struct NGram<T> {
+pub struct NGram<T = String> {
     threshold: f32,
     warp: f32,
     arity: usize,
