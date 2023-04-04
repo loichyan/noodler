@@ -186,6 +186,12 @@ impl<T: Keyed> NGram<T> {
     pub fn search<'a>(&'a self, query: &str) -> impl 'a + Iterator<Item = (&'a T, f32)> {
         self.search_with(query, None, None)
     }
+
+    pub fn search_sorted(&self, query: &str) -> impl '_ + Iterator<Item = &'_ T> {
+        let mut matches = self.search(query).collect::<Vec<_>>();
+        matches.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        matches.into_iter().map(|(item, _)| item)
+    }
 }
 
 pub struct NGramBuilder<T> {
@@ -569,10 +575,8 @@ mod tests {
     fn ngram_search() {
         let mut ngram = NGramStr::builder().threshold(0.5).warp(2.0).build();
         ngram.extend(["abcde", "cdcd", "cde", "cdef"]);
-        let mut matches = ngram.search("cde").collect::<Vec<_>>();
-        matches.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap().reverse());
         assert_eq!(
-            matches.into_iter().map(|(s, _)| *s).collect::<Vec<_>>(),
+            ngram.search_sorted("cde").copied().collect::<Vec<_>>(),
             vec!["cde", "cdef", "abcde"]
         );
     }
