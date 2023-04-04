@@ -132,7 +132,7 @@ impl<T: Keyed> NGram<T> {
         &'a self,
         query: &str,
     ) -> impl 'a + Iterator<Item = (&'a T, usize)> {
-        self.raw_items_sharing_ngrams(query)
+        self.raw_items_sharing_ngrams(&self.pad(query))
             .map(|(item, count)| (&item.item, count))
     }
 
@@ -142,10 +142,11 @@ impl<T: Keyed> NGram<T> {
         query: &str,
         warp: f32,
     ) -> impl 'a + Iterator<Item = (&'a T, f32)> {
-        let padded_len = length(&self.pad(query));
-        self.raw_items_sharing_ngrams(query)
+        let query = self.pad(query);
+        let query_len = length(&query);
+        self.raw_items_sharing_ngrams(&query)
             .map(move |(item, samegrams)| {
-                let allgrams = padded_len + item.padded_len + 2 - (2 * self.arity);
+                let allgrams = query_len + item.padded_len + 2 - (2 * self.arity);
                 let similarity = similarity(samegrams, allgrams, warp);
                 (&item.item, similarity)
             })
