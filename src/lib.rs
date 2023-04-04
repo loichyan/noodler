@@ -57,7 +57,8 @@ impl<T> NGram<T> {
     /// Iterates over the n-grams of a string (no padding).
     pub fn split<'a>(&self, s: &'a str) -> impl 'a + Iterator<Item = &'a str> {
         let n = self.arity;
-        (0..=s.len().saturating_sub(n)).map(move |i| &s[i..i + n])
+        // If s.len() < arity, 0..0 doesn't yield any value but 0..=0 does so.
+        (0..s.len().saturating_sub(n.saturating_sub(1))).map(move |i| &s[i..i + n])
     }
 
     /// Generates n-grams with their occurrences (no padding).
