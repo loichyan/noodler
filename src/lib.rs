@@ -177,23 +177,61 @@ impl<T: Keyed> NGram<T> {
             })
     }
 
-    pub fn search_with<'a>(
-        &'a self,
-        query: &str,
-        threshold: Option<f32>,
-        warp: Option<f32>,
-    ) -> impl 'a + Iterator<Item = (&'a T, f32)> {
-        let threshold = threshold.unwrap_or(self.threshold);
-        self.item_similarities(query, warp)
-            .filter(move |&(_, similarity)| similarity > threshold)
+    pub fn searcher<'i, 'a>(&'i self, query: &'a str) -> NGramSearcher<'i, 'a, T> {
+        NGramSearcher {
+            ngram: self,
+            query,
+            threshold: None,
+            warp: None,
+        }
     }
 
     pub fn search<'a>(&'a self, query: &str) -> impl 'a + Iterator<Item = (&'a T, f32)> {
-        self.search_with(query, None, None)
+        self.searcher(query).exec()
     }
 
     pub fn search_sorted(&self, query: &str) -> impl '_ + Iterator<Item = &'_ T> {
-        let mut matches = self.search(query).collect::<Vec<_>>();
+        self.searcher(query).exec_sorted()
+    }
+}
+
+pub struct NGramSearcher<'i, 'a, T> {
+    ngram: &'i NGram<T>,
+    query: &'a str,
+    threshold: Option<f32>,
+    warp: Option<f32>,
+}
+
+impl<'i, T: Keyed> NGramSearcher<'i, '_, T> {
+    pub fn warp(self, warp: f32) -> Self {
+        Self {
+            warp: Some(warp),
+            ..self
+        }
+    }
+
+    pub fn threshold(self, threshold: f32) -> Self {
+        Self {
+            threshold: Some(threshold),
+            ..self
+        }
+    }
+
+    pub fn exec(self) -> impl 'i + Iterator<Item = (&'i T, f32)> {
+        let Self {
+            ngram,
+            query,
+            threshold,
+            warp,
+        } = self;
+        let threshold = threshold.unwrap_or(ngram.threshold);
+        ngram
+            .item_similarities(query, warp)
+            .filter(move |&(_, similarity)| similarity > threshold)
+    }
+
+    pub fn exec_sorted(self) -> impl 'i + Iterator<Item = &'i T> {
+        let mut matches = self.exec().collect::<Vec<_>>();
         matches.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
         matches.into_iter().map(|(item, _)| item)
     }
