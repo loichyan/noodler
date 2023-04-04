@@ -99,6 +99,11 @@ impl<T> NGram<T> {
 }
 
 impl<T: Keyed> NGram<T> {
+    pub fn fill<I: IntoIterator<Item = T>>(mut self, iter: I) -> Self {
+        self.extend(iter);
+        self
+    }
+
     pub fn contains(&self, item: &T) -> bool {
         self.keys.contains(item.key())
     }
@@ -524,8 +529,7 @@ mod tests {
 
     #[test]
     fn ngram_items_sharing_ngrams() {
-        let mut ngram = NGramStr::default();
-        ngram.extend(["abcde", "cde", "bcdef", "fgh"]);
+        let ngram = NGramStr::default().fill(["abcde", "cde", "bcdef", "fgh"]);
         assert_eq!(
             ngram
                 .items_sharing_ngrams("abcdefg")
@@ -539,8 +543,7 @@ mod tests {
 
     #[test]
     fn ngram_items_sharing_ngrams_min_count() {
-        let mut ngram = NGramStr::builder().arity(1).build();
-        ngram.extend(["aaa", "bbb"]);
+        let ngram = NGramStr::builder().arity(1).build().fill(["aaa", "bbb"]);
         assert_eq!(
             ngram
                 .items_sharing_ngrams("aaaaab")
@@ -554,8 +557,7 @@ mod tests {
 
     #[test]
     fn ngram_similarities() {
-        let mut ngram = NGramStr::default();
-        ngram.extend(["abcde", "cdcd", "cde"]);
+        let ngram = NGramStr::default().fill(["abcde", "cdcd", "cde"]);
         assert_eq!(
             ngram
                 .item_similarities("cde", None)
@@ -573,8 +575,11 @@ mod tests {
 
     #[test]
     fn ngram_search() {
-        let mut ngram = NGramStr::builder().threshold(0.5).warp(2.0).build();
-        ngram.extend(["abcde", "cdcd", "cde", "cdef"]);
+        let ngram = NGramStr::builder()
+            .threshold(0.5)
+            .warp(2.0)
+            .build()
+            .fill(["abcde", "cdcd", "cde", "cdef"]);
         assert_eq!(
             ngram.search_sorted("cde").copied().collect::<Vec<_>>(),
             vec!["cde", "cdef", "abcde"]
