@@ -56,9 +56,15 @@ impl<T> NGram<T> {
 
     /// Iterates over the n-grams of a string (no padding).
     pub fn split<'a>(&self, s: &'a str) -> impl 'a + Iterator<Item = &'a str> {
+        let char_indices = s
+            .char_indices()
+            .map(|(i, _)| i)
+            .chain(std::iter::once(s.len()))
+            .collect::<Vec<_>>();
         let n = self.arity;
         // If s.len() < arity, 0..0 doesn't yield any value but 0..=0 does so.
-        (0..s.len().saturating_sub(n.saturating_sub(1))).map(move |i| &s[i..i + n])
+        (0..char_indices.len().saturating_sub(n))
+            .map(move |i| &s[char_indices[i]..char_indices[i + n]])
     }
 
     /// Generates n-grams with their occurrences (no padding).
