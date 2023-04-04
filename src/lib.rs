@@ -146,7 +146,7 @@ impl<T: Keyed> NGram<T> {
         let query_len = length(&query);
         self.raw_items_sharing_ngrams(&query)
             .map(move |(item, samegrams)| {
-                let allgrams = query_len + item.padded_len + 2 - (2 * self.arity);
+                let allgrams = query_len + item.padded_len + 2 - (2 * self.arity) - samegrams;
                 let similarity = similarity(samegrams, allgrams, warp);
                 (&item.item, similarity)
             })
