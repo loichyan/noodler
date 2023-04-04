@@ -258,13 +258,74 @@ impl<T> NGramBuilder<T> {
     }
 }
 
-// TODO: impl for common types
 pub trait Keyed {
     /// Returns a string to identify this item and generate n-grams.
     ///
     /// **Note**: This function should be cheap and deterministic.
     fn key(&self) -> &str;
 }
+
+macro_rules! impl_for_ptr_type {
+    ($ty:ident) => {
+        impl<T: Keyed> Keyed for $ty<T> {
+            fn key(&self) -> &str {
+                T::key(self)
+            }
+        }
+    };
+    ($ty:ident<'_>) => {
+        impl<T: Keyed> Keyed for $ty<'_, T> {
+            fn key(&self) -> &str {
+                T::key(self)
+            }
+        }
+    };
+}
+
+const _: () = {
+    use std::{
+        borrow::Cow,
+        cell::{Ref, RefMut},
+        rc::Rc,
+        sync::Arc,
+    };
+
+    impl Keyed for String {
+        fn key(&self) -> &str {
+            self
+        }
+    }
+
+    impl Keyed for &str {
+        fn key(&self) -> &str {
+            self
+        }
+    }
+
+    impl Keyed for Cow<'_, str> {
+        fn key(&self) -> &str {
+            self
+        }
+    }
+
+    impl_for_ptr_type!(Box);
+    impl_for_ptr_type!(Rc);
+    impl_for_ptr_type!(Arc);
+    impl_for_ptr_type!(Ref<'_>);
+    impl_for_ptr_type!(RefMut<'_>);
+
+    impl<T: Keyed> Keyed for (T,) {
+        fn key(&self) -> &str {
+            self.0.key()
+        }
+    }
+
+    impl<T1: Keyed, T2> Keyed for (T1, T2) {
+        fn key(&self) -> &str {
+            self.0.key()
+        }
+    }
+};
 
 fn length(s: &str) -> usize {
     s.chars().count()
