@@ -143,8 +143,9 @@ impl<T: Keyed> NGram<T> {
     pub fn item_similarities<'a>(
         &'a self,
         query: &str,
-        warp: f32,
+        warp: Option<f32>,
     ) -> impl 'a + Iterator<Item = (&'a T, f32)> {
+        let warp = warp.unwrap_or(self.warp);
         let query = self.pad(query);
         let query_len = length(&query);
         self.raw_items_sharing_ngrams(&query)
@@ -158,15 +159,16 @@ impl<T: Keyed> NGram<T> {
     pub fn search_with<'a>(
         &'a self,
         query: &str,
-        threshold: f32,
-        warp: f32,
+        threshold: Option<f32>,
+        warp: Option<f32>,
     ) -> impl 'a + Iterator<Item = (&'a T, f32)> {
+        let threshold = threshold.unwrap_or(self.threshold);
         self.item_similarities(query, warp)
             .filter(move |&(_, similarity)| similarity > threshold)
     }
 
     pub fn search<'a>(&'a self, query: &str) -> impl 'a + Iterator<Item = (&'a T, f32)> {
-        self.search_with(query, self.threshold, self.warp)
+        self.search_with(query, None, None)
     }
 }
 
@@ -534,7 +536,7 @@ mod tests {
         ngram.extend(["abcde", "cdcd", "cde"]);
         assert_eq!(
             ngram
-                .item_similarities("cde", 1.0)
+                .item_similarities("cde", None)
                 .map(|(s, i)| (*s, i))
                 .collect::<HashMap<_, _>>(),
             [
