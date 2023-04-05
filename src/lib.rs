@@ -626,4 +626,23 @@ mod tests {
             vec!["cde", "cdef", "abcde"]
         );
     }
+
+    #[test]
+    fn ngram_search_with_parameters() {
+        let ngram = NGramStr::builder()
+            .threshold(1.0)
+            .warp(1.0)
+            .build()
+            .fill(["abcde", "cdcd", "cde", "cdef"]);
+        assert_eq!(
+            ngram
+                .searcher("cde")
+                .warp(2.0)
+                .threshold(0.5)
+                .exec_sorted()
+                .map(|(item, _)| *item)
+                .collect::<Vec<_>>(),
+            vec!["cde", "cdef", "abcde"]
+        );
+    }
 }
