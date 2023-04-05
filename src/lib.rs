@@ -104,10 +104,12 @@ impl<T: Keyed> NGram<T> {
         self
     }
 
+    /// Returns `true` if the [`NGram`] contains an item.
     pub fn contains(&self, item: &T) -> bool {
         self.keys.contains(item.key())
     }
 
+    /// Inserts an item if the [`NGram`] doesn't contain it.
     pub fn insert(&mut self, item: T) {
         if self.contains(&item) {
             return;
@@ -135,6 +137,7 @@ impl<T: Keyed> NGram<T> {
         query: &str,
     ) -> impl 'a + Iterator<Item = (&'a NGramItem<T>, usize)> {
         self.ngrams(query)
+            // Sum shared n-grams of each item
             .fold(
                 HashMap::<usize, usize>::default(),
                 |mut shared, (ngram, count)| {
@@ -186,10 +189,12 @@ impl<T: Keyed> NGram<T> {
         }
     }
 
+    /// A shorthand of [`NGramSearcher::exec()`].
     pub fn search<'a>(&'a self, query: &str) -> impl 'a + Iterator<Item = (&'a T, f32)> {
         self.searcher(query).exec()
     }
 
+    /// A shorthand of [`NGramSearcher::exec_sorted()`].
     pub fn search_sorted(&self, query: &str) -> impl '_ + Iterator<Item = (&'_ T, f32)> {
         self.searcher(query).exec_sorted()
     }
@@ -217,6 +222,7 @@ impl<'i, T: Keyed> NGramSearcher<'i, '_, T> {
         }
     }
 
+    /// Consumes the searcher and returns all items with matched similarities.
     pub fn exec(self) -> impl 'i + Iterator<Item = (&'i T, f32)> {
         let Self {
             ngram,
@@ -230,6 +236,7 @@ impl<'i, T: Keyed> NGramSearcher<'i, '_, T> {
             .filter(move |&(_, similarity)| similarity > threshold)
     }
 
+    /// Searches items and sorts the results by their similarities.
     pub fn exec_sorted(self) -> impl 'i + Iterator<Item = (&'i T, f32)> {
         let mut matches = self.exec().collect::<Vec<_>>();
         matches.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());

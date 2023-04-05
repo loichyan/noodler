@@ -9,8 +9,18 @@
 >
 > _ChatGPT_
 
-A port of [the python ngram](https://github.com/gpoulter/python-ngram) project
+A port of the [python-ngram](https://github.com/gpoulter/python-ngram) project
 that provides fuzzy search using [N-gram](https://en.wikipedia.org/wiki/N-gram).
+
+## 💭 Insipired by
+
+Please check out these awesome works that helped a lot in the creation of
+noodler:
+
+- [python-ngram](https://github.com/gpoulter/python-ngram): Set that supports
+  searching by ngram similarity.
+- [ngrammatic](https://github.com/compenguy/ngrammatic): A rust crate providing
+  fuzzy search/string matching using N-grams.
 
 ## ⚖️ License
 
