@@ -190,7 +190,7 @@ impl<T: Keyed> NGram<T> {
         self.searcher(query).exec()
     }
 
-    pub fn search_sorted(&self, query: &str) -> impl '_ + Iterator<Item = &'_ T> {
+    pub fn search_sorted(&self, query: &str) -> impl '_ + Iterator<Item = (&'_ T, f32)> {
         self.searcher(query).exec_sorted()
     }
 }
@@ -230,10 +230,10 @@ impl<'i, T: Keyed> NGramSearcher<'i, '_, T> {
             .filter(move |&(_, similarity)| similarity > threshold)
     }
 
-    pub fn exec_sorted(self) -> impl 'i + Iterator<Item = &'i T> {
+    pub fn exec_sorted(self) -> impl 'i + Iterator<Item = (&'i T, f32)> {
         let mut matches = self.exec().collect::<Vec<_>>();
         matches.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-        matches.into_iter().map(|(item, _)| item)
+        matches.into_iter()
     }
 }
 
@@ -619,7 +619,10 @@ mod tests {
             .build()
             .fill(["abcde", "cdcd", "cde", "cdef"]);
         assert_eq!(
-            ngram.search_sorted("cde").copied().collect::<Vec<_>>(),
+            ngram
+                .search_sorted("cde")
+                .map(|(item, _)| *item)
+                .collect::<Vec<_>>(),
             vec!["cde", "cdef", "abcde"]
         );
     }
