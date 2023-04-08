@@ -132,11 +132,15 @@ impl<T: Keyed> NGram<T> {
         });
     }
 
-    fn raw_items_sharing_ngrams<'a>(
+    /// Iterates over items that share n-grams with the query string. Yields item
+    /// and the number of shared n-grams, see [`SharedNgrams`] for more details.
+    pub fn items_sharing_ngrams<'a>(
         &'a self,
         query: &str,
-    ) -> impl 'a + Iterator<Item = (&'a NGramItem<T>, usize)> {
-        self.ngrams(query)
+    ) -> impl 'a + Iterator<Item = SharedNGrams<'a, T>> {
+        let query = self.pad(query);
+        let query_ngrams = length(&query) + 1 - self.arity;
+        self.ngrams(&query)
             // Sum shared n-grams of each item
             .fold(
                 HashMap::<usize, usize>::default(),
@@ -150,17 +154,15 @@ impl<T: Keyed> NGram<T> {
                 },
             )
             .into_iter()
-            .map(|(id, count)| (&self.items[id], count))
-    }
-
-    /// Iterates over items that share n-grams with the query string. Yields item
-    /// and the number of shared n-grams.
-    pub fn items_sharing_ngrams<'a>(
-        &'a self,
-        query: &str,
-    ) -> impl 'a + Iterator<Item = (&'a T, usize)> {
-        self.raw_items_sharing_ngrams(&self.pad(query))
-            .map(|(item, count)| (&item.item, count))
+            .map(move |(id, shared_ngrams)| {
+                let item = &self.items[id];
+                SharedNGrams {
+                    item: &item.item,
+                    item_ngrams: item.padded_len + 1 - self.arity,
+                    query_ngrams,
+                    shared_ngrams,
+                }
+            })
     }
 
     /// Iterates over items sharing n-grams with the query string and their similarities.
@@ -170,14 +172,23 @@ impl<T: Keyed> NGram<T> {
         warp: Option<f32>,
     ) -> impl 'a + Iterator<Item = (&'a T, f32)> {
         let warp = warp.unwrap_or(self.warp);
-        let query = self.pad(query);
-        let query_len = length(&query);
-        self.raw_items_sharing_ngrams(&query)
-            .map(move |(item, samegrams)| {
-                let allgrams = query_len + item.padded_len + 2 - (2 * self.arity) - samegrams;
-                let similarity = similarity(samegrams, allgrams, warp);
-                (&item.item, similarity)
-            })
+        self.items_sharing_ngrams(query).map(
+            move |SharedNGrams {
+                      item,
+                      item_ngrams,
+                      query_ngrams,
+                      shared_ngrams,
+                  }| {
+                (
+                    item,
+                    similarity(
+                        shared_ngrams,
+                        item_ngrams + query_ngrams - shared_ngrams,
+                        warp,
+                    ),
+                )
+            },
+        )
     }
 
     pub fn searcher<'i, 'a>(&'i self, query: &'a str) -> NGramSearcher<'i, 'a, T> {
@@ -198,6 +209,16 @@ impl<T: Keyed> NGram<T> {
     pub fn search_sorted(&self, query: &str) -> impl '_ + Iterator<Item = (&'_ T, f32)> {
         self.searcher(query).exec_sorted()
     }
+}
+
+pub struct SharedNGrams<'a, T> {
+    pub item: &'a T,
+    /// Number of item's n-grams.
+    pub item_ngrams: usize,
+    /// Number of query string's n-grams.
+    pub query_ngrams: usize,
+    /// Number of shared n-grams between item and query string.
+    pub shared_ngrams: usize,
 }
 
 pub struct NGramSearcher<'i, 'a, T> {
@@ -578,7 +599,7 @@ mod tests {
         assert_eq!(
             ngram
                 .items_sharing_ngrams("abcdefg")
-                .map(|(s, t)| (*s, t))
+                .map(|t| (*t.item, t.shared_ngrams))
                 .collect::<HashMap<_, _>>(),
             [("abcde", 5), ("cde", 1), ("bcdef", 3)]
                 .into_iter()
@@ -592,7 +613,7 @@ mod tests {
         assert_eq!(
             ngram
                 .items_sharing_ngrams("aaaaab")
-                .map(|(s, t)| (*s, t))
+                .map(|t| (*t.item, t.shared_ngrams))
                 .collect::<HashMap<_, _>>(),
             [("aaa", 3), ("bbb", 1)]
                 .into_iter()
