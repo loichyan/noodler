@@ -96,6 +96,15 @@ impl<T> NGram<T> {
             })
             .into_iter()
     }
+
+    /// Calculates N-gram similarity.
+    pub fn similarity(&self, shared_ngrams: usize, all_ngrams: usize, warp: Option<f32>) -> f32 {
+        similarity(
+            shared_ngrams,
+            all_ngrams - shared_ngrams,
+            warp.unwrap_or(self.warp),
+        )
+    }
 }
 
 impl<T: Keyed> NGram<T> {
@@ -171,7 +180,6 @@ impl<T: Keyed> NGram<T> {
         query: &str,
         warp: Option<f32>,
     ) -> impl 'a + Iterator<Item = (&'a T, f32)> {
-        let warp = warp.unwrap_or(self.warp);
         self.items_sharing_ngrams(query).map(
             move |SharedNGrams {
                       item,
@@ -181,11 +189,7 @@ impl<T: Keyed> NGram<T> {
                   }| {
                 (
                     item,
-                    similarity(
-                        shared_ngrams,
-                        item_ngrams + query_ngrams - shared_ngrams,
-                        warp,
-                    ),
+                    self.similarity(shared_ngrams, item_ngrams + query_ngrams, warp),
                 )
             },
         )
@@ -437,9 +441,9 @@ fn length(s: &str) -> usize {
     s.chars().count()
 }
 
-fn similarity(samegrams: usize, allgrams: usize, warp: f32) -> f32 {
-    let samegrams = samegrams as f32;
-    let allgrams = allgrams as f32;
+fn similarity(shared_ngrams: usize, union_ngrams: usize, warp: f32) -> f32 {
+    let samegrams = shared_ngrams as f32;
+    let allgrams = union_ngrams as f32;
     if (warp - 1.0).abs() < 1e-9 {
         samegrams / allgrams
     } else {
@@ -455,17 +459,31 @@ mod tests {
     type NGramStr = NGram<&'static str>;
 
     #[test]
-    fn unicode_length() {
-        assert_eq!(length("哈哈哈"), 3);
+    fn ascii_length() {
+        assert_eq!(length("abc"), 3);
+        assert_eq!(length("123"), 3);
     }
 
     #[test]
-    fn ngram_similarity() {
+    fn unicode_length() {
+        assert_eq!(length("一二三"), 3);
+        assert_eq!(length("🥳🥳🥳"), 3);
+    }
+
+    #[test]
+    fn raw_similarity() {
         assert_eq!(similarity(5, 10, 1.0), 0.5);
         assert_eq!(similarity(5, 10, 2.0), 0.75);
         assert_eq!(similarity(5, 10, 3.0), 0.875);
         assert_eq!(similarity(2, 4, 2.0), 0.75);
         assert_eq!(similarity(3, 4, 1.0), 0.75);
+    }
+
+    #[test]
+    fn ngram_similarity() {
+        let ngram = NGramStr::new();
+        assert_eq!(ngram.similarity(5, 15, Some(1.0)), 0.5);
+        assert_eq!(ngram.similarity(5, 15, Some(2.0)), 0.75);
     }
 
     #[test]
