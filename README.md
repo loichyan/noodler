@@ -12,7 +12,39 @@
 A port of the [python-ngram](https://github.com/gpoulter/python-ngram) project
 that provides fuzzy search using [N-gram](https://en.wikipedia.org/wiki/N-gram).
 
-## 💭 Insipired by
+## ✍️ Example
+
+```rust
+use noodler::NGram;
+
+let ngram = NGram::<&str>::builder()
+    .arity(2)
+    .warp(3.0)
+    .threshold(0.75)
+    .build()
+    // Feed with known words
+    .fill(vec!["pie", "animal", "tomato", "seven", "carbon"]);
+
+// Try an unknown/misspelled word, and find a similar match
+let word = "tomacco";
+let top = ngram.search_sorted(word).next();
+if let Some((text, similarity)) = top {
+    if similarity > 0.99 {
+        println!("✔ {}", text);
+    } else {
+        println!(
+            "❓{} (did you mean {}? [{:.0}% match])",
+            word,
+            text,
+            similarity * 100.0
+        );
+    }
+} else {
+    println!("🗙 {}", word);
+}
+```
+
+## 💭 Inspired by
 
 Please check out these awesome works that helped a lot in the creation of
 noodler:

@@ -1,3 +1,48 @@
+//! A port of the [python-ngram](https://github.com/gpoulter/python-ngram) project
+//! that provides fuzzy search using [N-gram](https://en.wikipedia.org/wiki/N-gram).
+//!
+//! # ✍️ Example
+//!
+//! ```
+//! use noodler::NGram;
+//!
+//! let ngram = NGram::<&str>::builder()
+//!     .arity(2)
+//!     .warp(3.0)
+//!     .threshold(0.75)
+//!     .build()
+//!     // Feed with known words
+//!     .fill(vec!["pie", "animal", "tomato", "seven", "carbon"]);
+//!
+//! // Try an unknown/misspelled word, and find a similar match
+//! let word = "tomacco";
+//! let top = ngram.search_sorted(word).next();
+//! if let Some((text, similarity)) = top {
+//!     if similarity > 0.99 {
+//!         println!("✔ {}", text);
+//!     } else {
+//!         println!(
+//!             "❓{} (did you mean {}? [{:.0}% match])",
+//!             word,
+//!             text,
+//!             similarity * 100.0
+//!         );
+//!     }
+//! } else {
+//!     println!("🗙 {}", word);
+//! }
+//! ```
+//!
+//! # 💭 Inspired by
+//!
+//! Please check out these awesome works that helped a lot in the creation of
+//! noodler:
+//!
+//! - [python-ngram](https://github.com/gpoulter/python-ngram): Set that supports
+//!   searching by ngram similarity.
+//! - [ngrammatic](https://github.com/compenguy/ngrammatic): A rust crate providing
+//!   fuzzy search/string matching using N-grams.
+
 #![allow(clippy::type_complexity)]
 
 use std::{
@@ -142,7 +187,7 @@ impl<T: Keyed> NGram<T> {
     }
 
     /// Iterates over items that share n-grams with the query string. Yields item
-    /// and the number of shared n-grams, see [`SharedNgrams`] for more details.
+    /// and the number of shared n-grams, see [`SharedNGrams`] for more details.
     pub fn items_sharing_ngrams<'a>(
         &'a self,
         query: &str,

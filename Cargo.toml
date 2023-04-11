@@ -2,7 +2,12 @@
 name = "noodler"
 version = "0.0.0"
 license = "MIT OR Apache-2.0"
-
+authors = ["loichyan <loichyan@foxmail.com>"]
 edition = "2021"
 
-[dependencies]
+description = "A port of the python-ngram project that provides fuzzy search using N-gram."
+keywords = ["fuzzy", "ngrams", "shingles"]
+categories = ["text-processing"]
+readme = "README.md"
+repository = "https://github.com/loichyan/noodler"
+documentation = "https://docs.rs/noodler"

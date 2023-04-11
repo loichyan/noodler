@@ -1,6 +1,6 @@
 {
   "version": "0.2",
+  "words": ["noodler", "ngram", "ngrammatic", "arity", "println"],
   "flagWords": [],
-  "words": ["noodler", "ngram", "ngrammatic"],
   "language": "en"
 }
