@@ -42,6 +42,10 @@
 //!   searching by ngram similarity.
 //! - [ngrammatic](https://github.com/compenguy/ngrammatic): A rust crate providing
 //!   fuzzy search/string matching using N-grams.
+//!
+//! # 🚩 Minimal supported Rust version
+//!
+//! All tests passed with `rustc v1.41`, earlier versions may not compile.
 
 #![allow(clippy::type_complexity)]
 
@@ -115,7 +119,7 @@ impl<T> NGram<T> {
 
     /// Pads a string in preparation for splitting into n-grams.
     pub fn pad(&self, s: &str) -> String {
-        format!("{}{s}{}", self.padding, self.padding)
+        format!("{}{}{}", self.padding, s, self.padding)
     }
 
     /// Iterates over the n-grams of a string (no padding).
@@ -396,7 +400,7 @@ impl<T> NGramBuilder<T> {
         }
         let pad_len = self.pad_len.unwrap_or(arity - 1);
         if pad_len >= arity {
-            panic!("pad_len out of range < arity = {arity}");
+            panic!("pad_len out of range < arity = {}", arity);
         }
         let padding = std::iter::repeat(self.pad_char.unwrap_or('\u{A0}'))
             .take(pad_len)
@@ -503,6 +507,10 @@ mod tests {
 
     type NGramStr = NGram<&'static str>;
 
+    fn float_eq(a: f32, b: f32) -> bool {
+        (a - b).abs() < std::f32::EPSILON
+    }
+
     #[test]
     fn ascii_length() {
         assert_eq!(length("abc"), 3);
@@ -517,18 +525,18 @@ mod tests {
 
     #[test]
     fn raw_similarity() {
-        assert_eq!(similarity(5, 10, 1.0), 0.5);
-        assert_eq!(similarity(5, 10, 2.0), 0.75);
-        assert_eq!(similarity(5, 10, 3.0), 0.875);
-        assert_eq!(similarity(2, 4, 2.0), 0.75);
-        assert_eq!(similarity(3, 4, 1.0), 0.75);
+        assert!(float_eq(similarity(5, 10, 1.0), 0.5));
+        assert!(float_eq(similarity(5, 10, 2.0), 0.75));
+        assert!(float_eq(similarity(5, 10, 3.0), 0.875));
+        assert!(float_eq(similarity(2, 4, 2.0), 0.75));
+        assert!(float_eq(similarity(3, 4, 1.0), 0.75));
     }
 
     #[test]
     fn ngram_similarity() {
         let ngram = NGramStr::new();
-        assert_eq!(ngram.similarity(5, 15, Some(1.0)), 0.5);
-        assert_eq!(ngram.similarity(5, 15, Some(2.0)), 0.75);
+        assert!(float_eq(ngram.similarity(5, 15, Some(1.0)), 0.5));
+        assert!(float_eq(ngram.similarity(5, 15, Some(2.0)), 0.75));
     }
 
     #[test]
@@ -609,14 +617,14 @@ mod tests {
         assert_eq!(ngram.keys.len(), 2);
         assert_eq!(
             &ngram.records,
-            &[
+            &vec![
                 ("a", vec![record(0, 1)]),
                 ("b", vec![record(0, 2), record(1, 1)]),
                 ("c", vec![record(0, 1), record(1, 2)]),
                 ("d", vec![record(1, 1)]),
             ]
-            .map(|(k, v)| (k.to_owned(), v))
             .into_iter()
+            .map(|(k, v)| (k.to_owned(), v))
             .collect::<HashMap<_, _>>()
         );
     }
@@ -650,7 +658,7 @@ mod tests {
         let ngram = NGramStr::default();
         assert_eq!(
             ngram.ngrams("abcdabcd").collect::<HashMap<_, _>>(),
-            [("abc", 2), ("bcd", 2), ("cda", 1), ("dab", 1)]
+            vec![("abc", 2), ("bcd", 2), ("cda", 1), ("dab", 1)]
                 .into_iter()
                 .collect::<HashMap<_, _>>()
         );
@@ -658,13 +666,13 @@ mod tests {
 
     #[test]
     fn ngram_items_sharing_ngrams() {
-        let ngram = NGramStr::default().fill(["abcde", "cde", "bcdef", "fgh"]);
+        let ngram = NGramStr::default().fill(vec!["abcde", "cde", "bcdef", "fgh"]);
         assert_eq!(
             ngram
                 .items_sharing_ngrams("abcdefg")
                 .map(|t| (*t.item, t.shared_ngrams))
                 .collect::<HashMap<_, _>>(),
-            [("abcde", 5), ("cde", 1), ("bcdef", 3)]
+            vec![("abcde", 5), ("cde", 1), ("bcdef", 3)]
                 .into_iter()
                 .collect::<HashMap<_, _>>()
         );
@@ -672,13 +680,16 @@ mod tests {
 
     #[test]
     fn ngram_items_sharing_ngrams_min_count() {
-        let ngram = NGramStr::builder().arity(1).build().fill(["aaa", "bbb"]);
+        let ngram = NGramStr::builder()
+            .arity(1)
+            .build()
+            .fill(vec!["aaa", "bbb"]);
         assert_eq!(
             ngram
                 .items_sharing_ngrams("aaaaab")
                 .map(|t| (*t.item, t.shared_ngrams))
                 .collect::<HashMap<_, _>>(),
-            [("aaa", 3), ("bbb", 1)]
+            vec![("aaa", 3), ("bbb", 1)]
                 .into_iter()
                 .collect::<HashMap<_, _>>()
         );
@@ -686,13 +697,13 @@ mod tests {
 
     #[test]
     fn ngram_similarities() {
-        let ngram = NGramStr::default().fill(["abcde", "cdcd", "cde"]);
+        let ngram = NGramStr::default().fill(vec!["abcde", "cdcd", "cde"]);
         assert_eq!(
             ngram
                 .item_similarities("cde", None)
                 .map(|(s, i)| (*s, i))
                 .collect::<HashMap<_, _>>(),
-            [
+            vec![
                 ("abcde", similarity(3, 9, 1.0)),
                 ("cdcd", similarity(2, 9, 1.0)),
                 ("cde", similarity(5, 5, 1.0)),
@@ -708,7 +719,7 @@ mod tests {
             .threshold(0.5)
             .warp(2.0)
             .build()
-            .fill(["abcde", "cdcd", "cde", "cdef"]);
+            .fill(vec!["abcde", "cdcd", "cde", "cdef"]);
         assert_eq!(
             ngram
                 .search_sorted("cde")
@@ -724,7 +735,7 @@ mod tests {
             .threshold(1.0)
             .warp(1.0)
             .build()
-            .fill(["abcde", "cdcd", "cde", "cdef"]);
+            .fill(vec!["abcde", "cdcd", "cde", "cdef"]);
         assert_eq!(
             ngram
                 .searcher("cde")

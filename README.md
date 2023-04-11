@@ -54,6 +54,10 @@ noodler:
 - [ngrammatic](https://github.com/compenguy/ngrammatic): A rust crate providing
   fuzzy search/string matching using N-grams.
 
+## 🚩 Minimal supported Rust version
+
+All tests passed with `rustc v1.41`, earlier versions may not compile.
+
 ## ⚖️ License
 
 Licensed under either of
